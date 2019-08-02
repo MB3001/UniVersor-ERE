@@ -6,6 +6,8 @@ You can move with 'ASDW' and shoot balls with left click. You close the program 
 
 It is built with JMonkeyEngine (http://jmonkeyengine.org/).
 
-For more information see: https://github.com/MB3001/UniVersor
+For more information see: https://github.com/MB3001/UniVersor.
 
-Author: Matías Bonino
+"docs" logo obtained from: https://unsplash.com/photos/RGFntcLI8Go.
+
+Author: Matías Bonino.
