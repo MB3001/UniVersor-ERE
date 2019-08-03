@@ -36,7 +36,7 @@ public class Main extends SimpleApplication {
     /**
      * Prepare physics.
      */
-    float gravitational_constant = 10f; //3.9f * (float) Math.pow(10, -6);
+    float gravitational_constant = 5f; //3.9f * (float) Math.pow(10, -6);
     float standard_repulsion_parameter = 10f; //(float) Math.pow(10, 10);
 
     float start_radius_of_repulsive_zone = 30f; //(float) Math.pow(10, 8);
@@ -44,6 +44,7 @@ public class Main extends SimpleApplication {
 
     float cannonball_speed = 2f;
     float cannonball_mass = 1f;
+    float attractor_mass = 3f;
 
     /**
      * Prepare HUD.
@@ -57,6 +58,7 @@ public class Main extends SimpleApplication {
      */
     private RigidBodyControl ball_phy;
     private static Sphere sphere;
+    private static Sphere bigSphere;
 
     static {
         /**
@@ -64,6 +66,8 @@ public class Main extends SimpleApplication {
          */
         sphere = new Sphere(32, 32, 0.4f, true, false);
         sphere.setTextureMode(TextureMode.Projected);
+        bigSphere = new Sphere(32, 32, 1f, true, false);
+        bigSphere.setTextureMode(TextureMode.Projected);
     }
 
     @Override
@@ -79,19 +83,28 @@ public class Main extends SimpleApplication {
         inputManager.addMapping("shoot", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(actionListener, "shoot");
 
-        Geometry ball_geo = new Geometry("Attractor", sphere);
-        Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", ColorRGBA.Gray);
-        ball_geo.setMaterial(mat);
-        rootNode.attachChild(ball_geo);
-        //ball_geo.setLocalTranslation(Vector3f.UNIT_X.mult(3));
+        // Attractors.
+        for (int i = 0; i < 5; i++) {
 
-        ball_phy = new RigidBodyControl(cannonball_mass);
-        ball_geo.addControl(ball_phy);
-        bulletAppState.getPhysicsSpace().add(ball_phy);
-        ball_phy.setGravity(ZERO);
-        ball_phy.setLinearVelocity(Vector3f.UNIT_Y.mult(8));
-        
+            Geometry ball_geo = new Geometry("Attractor", bigSphere);
+            Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+            mat.setColor("Color", ColorRGBA.Gray);
+            ball_geo.setMaterial(mat);
+            rootNode.attachChild(ball_geo);
+            ball_geo.setLocalTranslation(Vector3f.UNIT_X.mult(12 * i - 30));
+
+            ball_phy = new Attractor(attractor_mass);
+            ball_geo.addControl(ball_phy);
+            bulletAppState.getPhysicsSpace().add(ball_phy);
+            ball_phy.setGravity(ZERO);
+            ball_phy.setLinearVelocity(
+                    Vector3f.UNIT_Y.mult(5 * (float) (Math.random() - 0.5))
+                            .add(Vector3f.UNIT_Z.mult(5 * (float) (Math.random() - 0.5)))
+            );
+
+        }
+
+        // Center mark.
         Box b = new Box(1, 1, 1);
         Geometry b_geom = new Geometry("Box", b);
         Material b_mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
@@ -110,9 +123,9 @@ public class Main extends SimpleApplication {
 
     public void makeCannonBall() {
 
-        Geometry ball_geo = new Geometry("cannon ball", sphere);
+        Geometry ball_geo = new Geometry("Cannon ball", sphere);
         Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", ColorRGBA.Gray);
+        mat.setColor("Color", ColorRGBA.Red);
         ball_geo.setMaterial(mat);
         rootNode.attachChild(ball_geo);
 
@@ -131,20 +144,24 @@ public class Main extends SimpleApplication {
     @Override
     public void simpleUpdate(float tpf) {
 
-        // Gravitation
-        for (PhysicsRigidBody attractor : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
+        // Gravitation.
+        for (PhysicsRigidBody prb : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
 
-            for (PhysicsRigidBody attracted : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
-                if (attractor != attracted) {
-                    attracted.applyCentralForce(
-                            (attractor.getPhysicsLocation().subtract(attracted.getPhysicsLocation()))
-                                    .normalize().mult(gravitational_constant * attractor.getMass() * attracted.getMass()
-                                            / attracted.getPhysicsLocation().distanceSquared(attractor.getPhysicsLocation())));
+            if (prb instanceof Attractor) {
+                for (PhysicsRigidBody attracted : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
+                    if (prb != attracted) {
+
+                        attracted.applyCentralForce(
+                                (prb.getPhysicsLocation().subtract(attracted.getPhysicsLocation()))
+                                        .normalize().mult(gravitational_constant * prb.getMass() * attracted.getMass()
+                                                / attracted.getPhysicsLocation().distanceSquared(prb.getPhysicsLocation())));
+
+                    }
                 }
             }
         }
 
-        // Repulsion
+        // Repulsion.
         for (PhysicsRigidBody body : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
 
             if (body.getPhysicsLocation().length() >= start_radius_of_repulsive_zone) {
@@ -156,7 +173,7 @@ public class Main extends SimpleApplication {
             }
         }
 
-        // HUD
+        // HUD.
         if (t % 60 == 0) {
             if (hudText != null) {
                 guiNode.detachChild(hudText);
@@ -165,7 +182,7 @@ public class Main extends SimpleApplication {
             hudText.setSize(guiFont.getCharSet().getRenderedSize());      // font size
             hudText.setColor(ColorRGBA.Cyan);                             // font color
             hudText.setText(
-                    // the text
+                    // The text.
                     "Position: " + cam.getLocation()
                     + "\nCamera direction: " + cam.getDirection()
                     + "\nAmount of cannonballs created: " + quantity

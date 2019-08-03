@@ -5,12 +5,16 @@
  */
 package mygame;
 
-import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.bullet.control.RigidBodyControl;
 
 /**
  *
  * @author Matías Bonino
  */
-public class Attractor extends PhysicsRigidBody {
+public class Attractor extends RigidBodyControl {
+
+    public Attractor(float mass) {
+        this.mass = mass;
+    }
 
 }
