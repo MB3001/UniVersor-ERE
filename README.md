@@ -8,6 +8,6 @@ It is built with JMonkeyEngine (http://jmonkeyengine.org/).
 
 For more information see: https://github.com/MB3001/UniVersor.
 
-Experimental Root Edition logo (located in "docs") obtained from: https://unsplash.com/photos/RGFntcLI8Go.
+Experimental Root Edition logo (located in "docs" folder) obtained from: https://unsplash.com/photos/RGFntcLI8Go.
 
 Author: Matías Bonino.
