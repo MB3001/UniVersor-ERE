@@ -1,19 +1,24 @@
 package mygame;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.audio.AudioData.DataType;
+import com.jme3.audio.AudioNode;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapText;
 import com.jme3.input.MouseInput;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
 import static com.jme3.math.Vector3f.ZERO;
 import com.jme3.renderer.RenderManager;
 import com.jme3.scene.Geometry;
+import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import com.jme3.scene.shape.Sphere.TextureMode;
@@ -36,22 +41,24 @@ public class Main extends SimpleApplication {
     /**
      * Prepare physics.
      */
-    float gravitational_constant = 5f; //3.9f * (float) Math.pow(10, -6);
-    float standard_repulsion_parameter = 10f; //(float) Math.pow(10, 10);
+    private float gravitational_constant = 5f; //3.9f * (float) Math.pow(10, -6);
+    private float standard_repulsion_parameter = 10f; //(float) Math.pow(10, 10);
 
-    float start_radius_of_repulsive_zone = 30f; //(float) Math.pow(10, 8);
-    float singular_radius = 50f; //start_radius_of_repulsive_zone + 3.16f * (float) Math.pow(10, 6);
+    private float start_radius_of_repulsive_zone = 30f; //(float) Math.pow(10, 8);
+    private float singular_radius = 50f; //start_radius_of_repulsive_zone + 3.16f * (float) Math.pow(10, 6);
 
-    float cannonball_speed = 2f;
-    float cannonball_mass = 1f;
-    float attractor_mass = 3f;
+    private float cannonball_speed = 2f;
+    private float cannonball_mass = 1f;
+    private float attractor_mass = 3f;
 
     /**
      * Prepare HUD.
      */
-    BitmapText hudText;
+    BitmapText hudText; // provisional
+    BitmapText ErrorHudText;
     private long t = 0;
     private int quantity = 0;
+    private String region;
 
     /**
      * Prepare bodies.
@@ -59,6 +66,23 @@ public class Main extends SimpleApplication {
     private RigidBodyControl ball_phy;
     private static Sphere sphere;
     private static Sphere bigSphere;
+    private Node linkables;
+
+    /**
+     * Prepare links.
+     */
+    private String link_data;
+
+    /**
+     * Prepare errors.
+     */
+    private String error_data;
+
+    /**
+     * Prepare soundtrack.
+     */
+    private AudioNode audio_nature;
+    private Geometry player;
 
     static {
         /**
@@ -82,6 +106,8 @@ public class Main extends SimpleApplication {
 
         inputManager.addMapping("shoot", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(actionListener, "shoot");
+        inputManager.addMapping("mark", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
+        inputManager.addListener(actionListener, "mark");
 
         // Attractors.
         for (int i = 0; i < 5; i++) {
@@ -111,12 +137,23 @@ public class Main extends SimpleApplication {
         b_mat.setColor("Color", ColorRGBA.Blue);
         b_geom.setMaterial(b_mat);
         rootNode.attachChild(b_geom);
+
+        // Soundtrack.
+        //initAudio();
     }
 
     private ActionListener actionListener = new ActionListener() {
         public void onAction(String name, boolean keyPressed, float tpf) {
             if (name.equals("shoot") && !keyPressed) {
                 makeCannonBall();
+            }
+            if (name.equals("mark") && !keyPressed) {
+                try {
+                    makeLink();
+                } catch (Exception ex) {
+                    error_data = "\n\n\nError: you cannot mark the void!!! XD\n\n" + ex;
+                    System.out.println(error_data);
+                }
             }
         }
     };
@@ -139,6 +176,44 @@ public class Main extends SimpleApplication {
         quantity++;
 
         ball_phy.setLinearVelocity(cam.getDirection().mult(cannonball_speed));
+    }
+
+    public void makeLink() {    // It is not ready. Please work.
+        CollisionResults results = new CollisionResults();
+        Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+        // Collect intersections between Ray and Linkables in results list.
+        linkables.collideWith(ray, results);
+        // 4. Print the results
+        link_data = "----- Collisions? " + results.size() + "-----";
+        for (int i = 0; i < results.size(); i++) {
+            // For each hit, we know distance, impact point, name of geometry.
+            float dist = results.getCollision(i).getDistance();
+            Vector3f pt = results.getCollision(i).getContactPoint();
+            String hit = results.getCollision(i).getGeometry().getName();
+            System.out.println("* Collision #" + i);
+            System.out.println("  You shot " + hit + " at " + pt + ", " + dist + " wu away.");
+            //We mark the hit object.
+            /*if (results.size() > 0) {
+          // The closest collision point is what was truly hit:
+          CollisionResult closest = results.getClosestCollision();
+          // We mark the hit with a green dot.
+          mark.setLocalTranslation(closest.getContactPoint());
+          rootNode.attachChild(mark);
+        } else {
+          // No hits? Then remove the green mark.
+          rootNode.detachChild(mark);
+        }*/
+        }
+    }
+
+    private void initAudio() {
+
+        audio_nature = new AudioNode(assetManager, "Sounds/Impact Lento.mp3", DataType.Stream);
+        audio_nature.setLooping(true);
+        audio_nature.setPositional(true);
+        audio_nature.setVolume(3);
+        rootNode.attachChild(audio_nature);
+        audio_nature.play();
     }
 
     @Override
@@ -178,6 +253,19 @@ public class Main extends SimpleApplication {
             if (hudText != null) {
                 guiNode.detachChild(hudText);
             }
+
+            // Region.
+            if (cam.getLocation().length() >= start_radius_of_repulsive_zone) {
+                if (cam.getLocation().length() > singular_radius) {
+                    region = "Exterior region.";
+                } else {
+                    region = "Repulsive region. Repulsive acceleration: " + standard_repulsion_parameter
+                            / (float) Math.pow((cam.getLocation().length() - singular_radius), 2);
+                }
+            } else {
+                region = "Non repulsive region.";
+            }
+
             hudText = new BitmapText(guiFont, false);
             hudText.setSize(guiFont.getCharSet().getRenderedSize());      // font size
             hudText.setColor(ColorRGBA.Cyan);                             // font color
@@ -189,9 +277,22 @@ public class Main extends SimpleApplication {
                     + "\nGravitational constant: " + gravitational_constant
                     + "\nCannonball initial speed: " + cannonball_speed
                     + "\nCannonball mass: " + cannonball_mass
+                    + "\nLink data: " + link_data
+                    + "\nStart radius of repulsive_zone: " + start_radius_of_repulsive_zone
+                    + "\nSingular radius: " + singular_radius
+                    + "\nRadius: " + cam.getLocation().length()
+                    + "\nRegion: " + region
             );
-            hudText.setLocalTranslation(300, hudText.getLineHeight() * 6, 0); // position
+            hudText.setLocalTranslation(300, hudText.getLineHeight() * 11, 0); // position
             guiNode.attachChild(hudText);
+
+            // HUD for errors.
+            ErrorHudText = new BitmapText(guiFont, true);
+            ErrorHudText.setSize(guiFont.getCharSet().getRenderedSize());
+            ErrorHudText.setColor(ColorRGBA.Red);
+            ErrorHudText.setText(error_data);
+            ErrorHudText.setLocalTranslation(1000, hudText.getLineHeight() * 11, 0); // position
+            guiNode.attachChild(ErrorHudText);
         }
 
         t++;
