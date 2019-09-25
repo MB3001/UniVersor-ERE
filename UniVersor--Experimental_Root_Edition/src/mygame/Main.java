@@ -6,6 +6,7 @@ import com.jme3.audio.AudioNode;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.objects.PhysicsRigidBody;
+import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
 import com.jme3.font.BitmapText;
 import com.jme3.input.MouseInput;
@@ -66,15 +67,16 @@ public class Main extends SimpleApplication {
     private RigidBodyControl ball_phy;
     private static Sphere sphere;
     private static Sphere bigSphere;
-    private Node linkables;
 
     /**
      * Prepare links.
      */
+    private Node linkables;
+    private Geometry mark;
     private String link_data;
 
     /**
-     * Prepare errors.
+     * Prepare error messages.
      */
     private String error_data;
 
@@ -96,20 +98,64 @@ public class Main extends SimpleApplication {
 
     @Override
     public void simpleInitApp() {
+
         /**
          * Set up Physics Game.
          */
         bulletAppState = new BulletAppState();
         stateManager.attach(bulletAppState);
 
+        // Links.
+        initLinks();
+
+        // Attractors.
+        initAttractors();
+
+        // A blue sphere to mark the hit.
+        initMark();
+
+        // A centred plus sign to help the player aim.
+        initCrossHairs();
+
+        // Soundtrack.
+        initAudio();
+
+        // Camera speed.
         flyCam.setMoveSpeed(30 * speed);
 
+        // Mouse actions.
         inputManager.addMapping("shoot", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(actionListener, "shoot");
         inputManager.addMapping("mark", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
         inputManager.addListener(actionListener, "mark");
 
-        // Attractors.
+        // UniVersor center mark.
+        Box b = new Box(1, 1, 1);
+        Geometry b_geom = new Geometry("Box", b);
+        Material b_mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        b_mat.setColor("Color", ColorRGBA.Blue);
+        b_geom.setMaterial(b_mat);
+        rootNode.attachChild(b_geom);
+    }
+
+    private ActionListener actionListener = new ActionListener() {
+        public void onAction(String name, boolean keyPressed, float tpf) {
+            if (name.equals("shoot") && !keyPressed) {
+                makeCannonBall();
+            }
+            if (name.equals("mark") && !keyPressed) {
+                try {
+                    makeLink();
+                } catch (NullPointerException ex) {
+                    error_data = "\n\n\nError: you cannot mark the void!!! XD\n\n" + ex;
+                    System.out.println(error_data);
+                }
+            }
+        }
+    };
+
+    private void initAttractors() {
+
         for (int i = 0; i < 5; i++) {
 
             Geometry ball_geo = new Geometry("Attractor", bigSphere);
@@ -128,35 +174,9 @@ public class Main extends SimpleApplication {
                             .add(Vector3f.UNIT_Z.mult(5 * (float) (Math.random() - 0.5)))
             );
 
+            linkables.attachChild(ball_geo);
         }
-
-        // Center mark.
-        Box b = new Box(1, 1, 1);
-        Geometry b_geom = new Geometry("Box", b);
-        Material b_mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        b_mat.setColor("Color", ColorRGBA.Blue);
-        b_geom.setMaterial(b_mat);
-        rootNode.attachChild(b_geom);
-
-        // Soundtrack.
-        //initAudio();
     }
-
-    private ActionListener actionListener = new ActionListener() {
-        public void onAction(String name, boolean keyPressed, float tpf) {
-            if (name.equals("shoot") && !keyPressed) {
-                makeCannonBall();
-            }
-            if (name.equals("mark") && !keyPressed) {
-                try {
-                    makeLink();
-                } catch (Exception ex) {
-                    error_data = "\n\n\nError: you cannot mark the void!!! XD\n\n" + ex;
-                    System.out.println(error_data);
-                }
-            }
-        }
-    };
 
     public void makeCannonBall() {
 
@@ -178,40 +198,68 @@ public class Main extends SimpleApplication {
         ball_phy.setLinearVelocity(cam.getDirection().mult(cannonball_speed));
     }
 
-    public void makeLink() {    // It is not ready. Please work.
+    private void makeLink() {    // It is not ready. Please work.
+
         CollisionResults results = new CollisionResults();
         Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+
         // Collect intersections between Ray and Linkables in results list.
         linkables.collideWith(ray, results);
-        // 4. Print the results
-        link_data = "----- Collisions? " + results.size() + "-----";
+
+        // For each hit, we know distance, impact point, name of geometry.
         for (int i = 0; i < results.size(); i++) {
-            // For each hit, we know distance, impact point, name of geometry.
             float dist = results.getCollision(i).getDistance();
             Vector3f pt = results.getCollision(i).getContactPoint();
             String hit = results.getCollision(i).getGeometry().getName();
-            System.out.println("* Collision #" + i);
-            System.out.println("  You shot " + hit + " at " + pt + ", " + dist + " wu away.");
-            //We mark the hit object.
-            /*if (results.size() > 0) {
-          // The closest collision point is what was truly hit:
-          CollisionResult closest = results.getClosestCollision();
-          // We mark the hit with a green dot.
-          mark.setLocalTranslation(closest.getContactPoint());
-          rootNode.attachChild(mark);
-        } else {
-          // No hits? Then remove the green mark.
-          rootNode.detachChild(mark);
-        }*/
         }
+
+        // We mark the hit object.
+        if (results.size() > 0) {
+            // The closest collision point is what was truly hit:
+            CollisionResult closest = results.getClosestCollision();
+            // We mark the hit with a dot.
+            mark.setLocalTranslation(closest.getContactPoint());
+            rootNode.attachChild(mark);
+        } else {
+            // No hits? Then remove the mark.
+            rootNode.detachChild(mark);
+        }
+
+        link_data = results.size() + " collisions.";
+    }
+
+    private void initLinks() {
+
+        linkables = new Node("Linkables");
+        rootNode.attachChild(linkables);
+    }
+
+    private void initMark() {
+        Sphere sphere = new Sphere(30, 30, 0.2f);
+        mark = new Geometry("BOOM!", sphere);
+        Material mark_mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mark_mat.setColor("Color", ColorRGBA.Blue);
+        mark.setMaterial(mark_mat);
+    }
+
+    private void initCrossHairs() {
+        setDisplayStatView(false);
+        guiFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
+        BitmapText ch = new BitmapText(guiFont, false);
+        ch.setSize(guiFont.getCharSet().getRenderedSize() * 2);
+        ch.setText("+"); // crosshairs
+        ch.setLocalTranslation( // center
+                settings.getWidth() / 2 - ch.getLineWidth() / 2,
+                settings.getHeight() / 2 + ch.getLineHeight() / 2, 0);
+        guiNode.attachChild(ch);
     }
 
     private void initAudio() {
 
-        audio_nature = new AudioNode(assetManager, "Sounds/Impact Lento.mp3", DataType.Stream);
+        audio_nature = new AudioNode(assetManager, "Sounds/The_Kyoto_Connection_-_11_-_Voyage_III_-_The_Space_Between_Us.ogg", DataType.Stream);
         audio_nature.setLooping(true);
-        audio_nature.setPositional(true);
-        audio_nature.setVolume(3);
+        audio_nature.setPositional(false);
+        audio_nature.setVolume(2);
         rootNode.attachChild(audio_nature);
         audio_nature.play();
     }
@@ -283,7 +331,7 @@ public class Main extends SimpleApplication {
                     + "\nRadius: " + cam.getLocation().length()
                     + "\nRegion: " + region
             );
-            hudText.setLocalTranslation(300, hudText.getLineHeight() * 11, 0); // position
+            hudText.setLocalTranslation(300, hudText.getLineHeight() * 11, 0);
             guiNode.attachChild(hudText);
 
             // HUD for errors.
@@ -291,7 +339,7 @@ public class Main extends SimpleApplication {
             ErrorHudText.setSize(guiFont.getCharSet().getRenderedSize());
             ErrorHudText.setColor(ColorRGBA.Red);
             ErrorHudText.setText(error_data);
-            ErrorHudText.setLocalTranslation(1000, hudText.getLineHeight() * 11, 0); // position
+            ErrorHudText.setLocalTranslation(1000, hudText.getLineHeight() * 11, 0);
             guiNode.attachChild(ErrorHudText);
         }
 

@@ -7,7 +7,7 @@ package mygame;
 
 /**
  *
- * @author Usuario
+ * @author Matías Bonino
  */
 public class Link {
     /* It consists of the two points (indicated with right click) of the surfaces of two

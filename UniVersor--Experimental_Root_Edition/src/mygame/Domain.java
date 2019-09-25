@@ -7,7 +7,7 @@ package mygame;
 
 /**
  *
- * @author Usuario
+ * @author Matías Bonino
  */
 public class Domain {
     
