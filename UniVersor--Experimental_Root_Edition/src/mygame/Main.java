@@ -104,6 +104,7 @@ public class Main extends SimpleApplication {
          */
         bulletAppState = new BulletAppState();
         stateManager.attach(bulletAppState);
+        bulletAppState.getPhysicsSpace().setGravity(ZERO);
 
         // Links.
         initLinks();
@@ -168,7 +169,6 @@ public class Main extends SimpleApplication {
             ball_phy = new Attractor(attractor_mass);
             ball_geo.addControl(ball_phy);
             bulletAppState.getPhysicsSpace().add(ball_phy);
-            ball_phy.setGravity(ZERO);
             ball_phy.setLinearVelocity(
                     Vector3f.UNIT_Y.mult(5 * (float) (Math.random() - 0.5))
                             .add(Vector3f.UNIT_Z.mult(5 * (float) (Math.random() - 0.5)))
@@ -176,56 +176,6 @@ public class Main extends SimpleApplication {
 
             linkables.attachChild(ball_geo);
         }
-    }
-
-    public void makeCannonBall() {
-
-        Geometry ball_geo = new Geometry("Cannon ball", sphere);
-        Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-        mat.setColor("Color", ColorRGBA.Red);
-        ball_geo.setMaterial(mat);
-        rootNode.attachChild(ball_geo);
-
-        ball_geo.setLocalTranslation(cam.getLocation());
-        ball_phy = new RigidBodyControl(cannonball_mass);
-
-        ball_geo.addControl(ball_phy);
-        bulletAppState.getPhysicsSpace().add(ball_phy);
-        ball_phy.setGravity(ZERO);
-
-        quantity++;
-
-        ball_phy.setLinearVelocity(cam.getDirection().mult(cannonball_speed));
-    }
-
-    private void makeLink() {    // It is not ready. Please work.
-
-        CollisionResults results = new CollisionResults();
-        Ray ray = new Ray(cam.getLocation(), cam.getDirection());
-
-        // Collect intersections between Ray and Linkables in results list.
-        linkables.collideWith(ray, results);
-
-        // For each hit, we know distance, impact point, name of geometry.
-        for (int i = 0; i < results.size(); i++) {
-            float dist = results.getCollision(i).getDistance();
-            Vector3f pt = results.getCollision(i).getContactPoint();
-            String hit = results.getCollision(i).getGeometry().getName();
-        }
-
-        // We mark the hit object.
-        if (results.size() > 0) {
-            // The closest collision point is what was truly hit:
-            CollisionResult closest = results.getClosestCollision();
-            // We mark the hit with a dot.
-            mark.setLocalTranslation(closest.getContactPoint());
-            rootNode.attachChild(mark);
-        } else {
-            // No hits? Then remove the mark.
-            rootNode.detachChild(mark);
-        }
-
-        link_data = results.size() + " collisions.";
     }
 
     private void initLinks() {
@@ -264,6 +214,60 @@ public class Main extends SimpleApplication {
         audio_nature.play();
     }
 
+    public void makeCannonBall() {
+
+        Geometry ball_geo = new Geometry("Cannon ball", sphere);
+        Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setColor("Color", ColorRGBA.Red);
+        ball_geo.setMaterial(mat);
+        rootNode.attachChild(ball_geo);
+
+        ball_geo.setLocalTranslation(cam.getLocation());
+        ball_phy = new RigidBodyControl(cannonball_mass);
+
+        ball_geo.addControl(ball_phy);
+        bulletAppState.getPhysicsSpace().add(ball_phy);
+
+        quantity++;
+
+        ball_phy.setLinearVelocity(cam.getDirection().mult(cannonball_speed));
+    }
+
+    private void contactPoint() {
+
+    }
+
+    private void makeLink() {    // It is not ready. Please work.
+
+        CollisionResults results = new CollisionResults();
+        Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+
+        // Collect intersections between Ray and Linkables in results list.
+        linkables.collideWith(ray, results);
+
+        // For each hit, we know distance, impact point, name of geometry.
+        for (int i = 0; i < results.size(); i++) {
+            float dist = results.getCollision(i).getDistance();
+            Vector3f pt = results.getCollision(i).getContactPoint();
+            String hit = results.getCollision(i).getGeometry().getName();
+        }
+
+        // We mark the hit object.
+        if (results.size() > 0) {
+            // The closest collision point is what was truly hit:
+            CollisionResult closest = results.getClosestCollision();
+            // We mark the hit with a dot.
+            mark.setLocalTranslation(closest.getContactPoint());
+            rootNode.attachChild(mark);
+        } else {
+            // No hits? Then remove the mark.
+            rootNode.detachChild(mark);
+        }
+
+        //Point2PointJoint link = new Point2PointJoint(, closest, cam.getLocation());
+        //link_data = results.size() + " collisions.";
+    }
+
     @Override
     public void simpleUpdate(float tpf) {
 
@@ -271,7 +275,9 @@ public class Main extends SimpleApplication {
         for (PhysicsRigidBody prb : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
 
             if (prb instanceof Attractor) {
+
                 for (PhysicsRigidBody attracted : bulletAppState.getPhysicsSpace().getRigidBodyList()) {
+
                     if (prb != attracted) {
 
                         attracted.applyCentralForce(
